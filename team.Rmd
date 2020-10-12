@@ -12,15 +12,18 @@ knitr::opts_chunk$set(warning = FALSE)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(knitr)
 ```
 # Part one: Cleaning data  
+  
+The below tables show the cleaned data frames:  
 ```{r}
 library(readxl)
-defense <- read_excel('/Users/jeff/Downloads/cyclonesFootball2019.xlsx', sheet='Defensive') %>% 
+defense <- read_excel('../cyclonesFootball2019.xlsx', sheet='Defensive') %>% 
   data.frame()
-offense <- read_excel('/Users/jeff/Downloads/cyclonesFootball2019.xlsx', sheet='Offensive') %>% 
+offense <- read_excel('../cyclonesFootball2019.xlsx', sheet='Offensive') %>% 
   data.frame()
-bio <- read_excel('/Users/jeff/Downloads/cyclonesFootball2019.xlsx', sheet='Biography') %>% 
+bio <- read_excel('../cyclonesFootball2019.xlsx', sheet='Biography') %>% 
   data.frame()
 defClean <- defense %>% 
   mutate(across(c(1:2), as.factor)) %>% 
@@ -41,39 +44,65 @@ bio$Height <- height %>% unlist() %>% unname()
 bio$Weight <- as.numeric(bio$Weight)
 bioClean <- bio
 
-offClean %>% head()
-defClean %>% head()
-bioClean %>% head()
+offClean %>% head() %>% kable()
+defClean %>% head() %>% kable()
+bioClean %>% head() %>% kable()
 ```
 
 # Part two: Tidying  
   
 **1. Reformat the defClean data frame into a tidy format using pivot_longer. The type of statistic (Tackles_Solo, Tackles_ASST, etc) is added as a new key column named stat.**
 ```{r}
-defCleanTidy <- defClean %>% pivot_longer(c(3:11), names_to="stat", values_to="stat_value")
-defCleanTidy %>% head()
+defCleanTidy <- defClean %>% 
+  pivot_longer(c(3:11), names_to="stat", values_to="stat_value")
+defCleanTidy %>% 
+  head() %>% 
+  kable()
 ```
   
 **2. Compare the distributions of the defensive statistics. What defensive skills are rare?**  
+  
+The below table shows the sum of each defensive statistic:  
 ```{r}
-defCleanTidy %>% group_by(stat) %>% summarise(sum=sum(stat_value))
+defCleanTidy %>% 
+  group_by(stat) %>% 
+  summarise(sum=sum(stat_value)) %>% 
+  kable()
 ```
+  
+This table clearly shows that turnovers of any kind are rare, and interceptions are the most rare.
 
-**3. Did ISU have better defense against Iowa or Notre Dame? Answer this question by creating a scatterplot with x- and y-axes being the number of solo tackles (of each player). A large number of solo tackles is an indicator of good defense.**
+**3. Did ISU have better defense against Iowa or Notre Dame? Answer this question by creating a scatterplot with x- and y-axes being the number of solo tackles (of each player). A large number of solo tackles is an indicator of good defense.**  
+  
+The below plot shows ISU solo tackles per player against Iowa:  
 ```{r}
 defCleanTidy %>% filter(stat=="Tackles_Solo" & Opponent_Opponent=="Iowa") %>% select("Name", "stat_value") %>% ggplot(aes(x=Name, y=stat_value)) + geom_point() + 
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-
-defCleanTidy %>% filter(stat=="Tackles_Solo" & Opponent_Opponent=="Notre Dame") %>% select("Name", "stat_value") %>% ggplot(aes(x=Name, y=stat_value)) + geom_point() + 
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  xlab("Player") +
+  ylab("Solo Tackles") +
+  ggtitle("ISU v. Iowa") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  geom_hline(aes(yintercept = mean(stat_value)))
 ```
+  
+The below plot shows ISU solo tackles per player against Notre Dame:
+```{r}
+defCleanTidy %>% filter(stat=="Tackles_Solo" & Opponent_Opponent=="Notre Dame") %>% select("Name", "stat_value") %>% ggplot(aes(x=Name, y=stat_value)) + geom_point() + 
+  xlab("Player") +
+  ylab("Solo Tackles") +
+  ggtitle("ISU v. Notre Dame") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  geom_hline(aes(yintercept = mean(stat_value)))
+```
+  
+Clearly, there were more solo tackles performed at the Notre Dame game. The regression line on each plot confirms this as Notre Dame has a higer average number of solo tackles.
   
 **4. Separate the Hometown column into two columns, namely the city and the state. Print the first few rows of these two columns. (Hint: look at the sep= argument of separate)**  
 ```{r}
 bioClean %>% 
   separate(Hometown, c("City","State"), sep = ", ") %>% 
   select(c("State", "City")) %>% 
-  head()
+  head() %>% 
+  kable()
 ```
 
 **5. How many players are there from each state?**
@@ -82,12 +111,15 @@ bioClean %>%
   separate(Hometown, c("City","State"), sep = ", ") %>% 
   select(c("State")) %>% 
   group_by(State) %>% 
-  tally(name="num_players")
+  tally(name="num_players") %>% 
+  kable()
 ```
   
 # Part three: Joining data frames  
   
-**1. Find which states do the ISU defensive and offensive players come from. Create an appropriate summary.**
+**1. Find which states do the ISU defensive and offensive players come from. Create an appropriate summary.**  
+  
+The below plot shows the distribution of defensive players by state:  
 ```{r}
 defClean %>% 
   inner_join(bioClean, by="Name") %>% 
@@ -97,9 +129,13 @@ defClean %>%
   group_by(State) %>% 
   tally(name="count") %>% 
   ggplot(aes(x=State, y=count)) + geom_bar(stat="identity") + 
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  xlab("State") +
+  ylab("Number of Players") +
+  ggtitle("Number of Defensive Players by State")
 ```
-
+  
+The below plot shows the distribution of defensive players by state:  
 ```{r}
 offClean %>% 
   inner_join(bioClean, by="Name") %>% 
@@ -109,11 +145,16 @@ offClean %>%
   group_by(State) %>% 
   tally(name="count") %>% 
   ggplot(aes(x=State, y=count)) + geom_bar(stat="identity") + 
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  xlab("State") +
+  ylab("Number of Players") +
+  ggtitle("Number of Defensive Players by State")
 ```
 
-**2. How does the performance of quarterback Brock Purdy relate to the performance of the ISU team?**
-```{r}
+**2. How does the performance of quarterback Brock Purdy relate to the performance of the ISU team?**  
+  
+The below plots show Brock Purdy's stats vs. the team as a whole. It is clear that when Brock Purdy's stats are higher, so are the total team stats. This makes sense given that most of the stats are related to passing and receiving which are directly related to the quarterback, Brock Purdy. However, the rushing stats also seem to trend upwards when the passing stats are also trending up.
+```{r, fig.width = 12, fig.height = 12}
 brock <- offClean %>% 
   filter(Name=="Purdy, Brock") %>% 
   select(c(2:12)) %>% 
@@ -131,6 +172,38 @@ brock %>% inner_join(team, by=c("Opponent_Opponent", "stat")) %>% pivot_longer(c
 ```
 
 **3. Which ISU player(s) made big progress over the last year? Compare the 2019 and the 2018 data.**
-```{r}
-
+```{r, fig.width = 12, fig.height = 12}
+defense <- read_excel('../cyclonesFootball2018.xlsx', sheet='Defensive') %>% 
+  data.frame()
+newDefense <- defClean %>% 
+  pivot_longer(c(3:11), names_to="stat", values_to="stat_value") %>% 
+  select(Name, stat, stat_value) %>% 
+  group_by(Name, stat) %>% 
+  summarise(sum_2019=sum(stat_value))
+joined_defense <- defense %>% 
+  mutate(across(c(1:2), as.factor)) %>% 
+  mutate(across(where(is.character), as.numeric)) %>% 
+  pivot_longer(c(3:11), names_to="stat", values_to="stat_value") %>% 
+  select(Name, stat, stat_value) %>% 
+  group_by(Name, stat) %>% 
+  summarise(sum_2018=sum(stat_value)) %>% 
+  inner_join(newDefense, by=c("Name", "stat")) %>% 
+  pivot_longer(c(3:4), names_to="year", values_to="year_sum")
+joined_defense %>% 
+  ggplot(aes(x=Name, y=year_sum, fill=year)) + 
+  geom_bar(position="dodge", stat="identity") + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(stat ~ .)
 ```
+  
+The above plots show the stats for each player in 2018 and 2019. It is clear that 3 players show significant improvement from 2018 to 2019 in almost every stat category. Those players are Anthony Johnson, O'Rien Vance and Lawrence White. To verify this, let's plot just these 3 players:  
+```{r, fig.width = 12, fig.height = 12}
+joined_defense %>% 
+  filter(Name=="Johnson , Anthony" | Name=="Vance, O'Rien" | Name=="White, Lawrence") %>% 
+  ggplot(aes(x=Name, y=year_sum, fill=year)) + 
+  geom_bar(position="dodge", stat="identity") + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  facet_wrap(stat ~ .)
+```
+  
+These plots confirm that all 3 defenseive players had a significant improvement in every defensive stat category - especially solo tackles and assisted tackles.
