@@ -1,0 +1,136 @@
+---
+title: "Lab 4"
+author: "Jeffrey Kinard"
+date: "10/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+# Part one: Cleaning data  
+```{r}
+library(readxl)
+defense <- read_excel('/Users/jeff/Downloads/cyclonesFootball2019.xlsx', sheet='Defensive') %>% 
+  data.frame()
+offense <- read_excel('/Users/jeff/Downloads/cyclonesFootball2019.xlsx', sheet='Offensive') %>% 
+  data.frame()
+bio <- read_excel('/Users/jeff/Downloads/cyclonesFootball2019.xlsx', sheet='Biography') %>% 
+  data.frame()
+defClean <- defense %>% 
+  mutate(across(c(1:2), as.factor)) %>% 
+  mutate(across(where(is.character), as.numeric))
+offClean <- offense %>% 
+  mutate(across(c(1:2), as.factor)) %>% 
+  mutate(across(where(is.character), as.numeric))
+feet <- bio %>% 
+  separate(Height, c("Feet","Inches"), sep = "-") %>% 
+  select(Feet) %>% 
+  mutate(across(c(1), as.numeric))
+inches <- bio %>% 
+  separate(Height, c("Feet","Inches"), sep = "-") %>% 
+  select(Inches) %>% 
+  mutate(across(c(1), as.numeric))
+height <- (feet * 12) + inches
+bio$Height <- height %>% unlist() %>% unname()
+bio$Weight <- as.numeric(bio$Weight)
+bioClean <- bio
+
+offClean %>% head()
+defClean %>% head()
+bioClean %>% head()
+```
+
+# Part two: Tidying  
+  
+**1. Reformat the defClean data frame into a tidy format using pivot_longer. The type of statistic (Tackles_Solo, Tackles_ASST, etc) is added as a new key column named stat.**
+```{r}
+defCleanTidy <- defClean %>% pivot_longer(c(3:11), names_to="stat", values_to="stat_value")
+defCleanTidy %>% head()
+```
+  
+**2. Compare the distributions of the defensive statistics. What defensive skills are rare?**  
+```{r}
+defCleanTidy %>% group_by(stat) %>% summarise(sum=sum(stat_value))
+```
+
+**3. Did ISU have better defense against Iowa or Notre Dame? Answer this question by creating a scatterplot with x- and y-axes being the number of solo tackles (of each player). A large number of solo tackles is an indicator of good defense.**
+```{r}
+defCleanTidy %>% filter(stat=="Tackles_Solo" & Opponent_Opponent=="Iowa") %>% select("Name", "stat_value") %>% ggplot(aes(x=Name, y=stat_value)) + geom_point() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+defCleanTidy %>% filter(stat=="Tackles_Solo" & Opponent_Opponent=="Notre Dame") %>% select("Name", "stat_value") %>% ggplot(aes(x=Name, y=stat_value)) + geom_point() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+  
+**4. Separate the Hometown column into two columns, namely the city and the state. Print the first few rows of these two columns. (Hint: look at the sep= argument of separate)**  
+```{r}
+bioClean %>% 
+  separate(Hometown, c("City","State"), sep = ", ") %>% 
+  select(c("State", "City")) %>% 
+  head()
+```
+
+**5. How many players are there from each state?**
+```{r}
+bioClean %>% 
+  separate(Hometown, c("City","State"), sep = ", ") %>% 
+  select(c("State")) %>% 
+  group_by(State) %>% 
+  tally(name="num_players")
+```
+  
+# Part three: Joining data frames  
+  
+**1. Find which states do the ISU defensive and offensive players come from. Create an appropriate summary.**
+```{r}
+defClean %>% 
+  inner_join(bioClean, by="Name") %>% 
+  separate(Hometown, c("City","State"), sep = ", ") %>% 
+  select(c("Name", "State"))%>% 
+  distinct() %>% 
+  group_by(State) %>% 
+  tally(name="count") %>% 
+  ggplot(aes(x=State, y=count)) + geom_bar(stat="identity") + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+```{r}
+offClean %>% 
+  inner_join(bioClean, by="Name") %>% 
+  separate(Hometown, c("City","State"), sep = ", ") %>% 
+  select(c("Name", "State"))%>% 
+  distinct() %>% 
+  group_by(State) %>% 
+  tally(name="count") %>% 
+  ggplot(aes(x=State, y=count)) + geom_bar(stat="identity") + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+**2. How does the performance of quarterback Brock Purdy relate to the performance of the ISU team?**
+```{r}
+brock <- offClean %>% 
+  filter(Name=="Purdy, Brock") %>% 
+  select(c(2:12)) %>% 
+  mutate_all(~replace(., is.na(.), 0)) %>% 
+  pivot_longer(c(2:11), names_to="stat", values_to="purdy_value")
+team <- offClean %>% 
+  select(c(2:12)) %>% 
+  mutate_all(~replace(., is.na(.), 0)) %>% 
+  pivot_longer(c(2:11), names_to="stat", values_to="team_value") %>% 
+  group_by(Opponent_Opponent, stat) %>% 
+  summarise(team_value=sum(team_value))
+
+brock %>% inner_join(team, by=c("Opponent_Opponent", "stat")) %>% pivot_longer(c(3:4), names_to="player", values_to="value") %>% ggplot(aes(x=stat, y=value, fill=player)) + geom_bar(position="dodge", stat="identity") + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + facet_wrap(Opponent_Opponent ~ .)
+```
+
+**3. Which ISU player(s) made big progress over the last year? Compare the 2019 and the 2018 data.**
+```{r}
+
+```
